@@ -1,0 +1,512 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FarmLink App v2</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #4A6C6F; /* Deep Teal */
+            --secondary: #6D9773; /* Muted Green */
+            --accent: #F4A261; /* Sandy Orange */
+            --background: #F8F7F2; /* Off-white */
+            --text-dark: #2F3E46;
+            --text-light: #F8F7F2;
+            --border-color: #e5e7eb;
+        }
+        body { font-family: 'Inter', sans-serif; background-color: var(--background); color: var(--text-dark); }
+        .btn { padding: 0.75rem 1.5rem; border-radius: 0.5rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; transition: all 0.2s ease-in-out; border: 2px solid transparent; }
+        .btn-primary { background-color: var(--primary); color: var(--text-light); }
+        .btn-primary:hover { background-color: transparent; color: var(--primary); border-color: var(--primary); }
+        .btn-primary:disabled { background-color: #94a3b8; color: #e2e8f0; cursor: not-allowed; border-color: transparent;}
+        .btn-secondary { background-color: var(--secondary); color: var(--text-light); }
+        .btn-secondary:hover { background-color: transparent; color: var(--secondary); border-color: var(--secondary); }
+        .role-card { transition: all 0.3s ease; border: 2px solid var(--border-color); }
+        .role-card.disabled { filter: grayscale(1); opacity: 0.6; pointer-events: none; }
+        .role-card:not(.disabled):hover { transform: translateY(-5px); box-shadow: 0 10px 20px -5px rgba(0,0,0,0.1); border-color: var(--primary); }
+        input, select, textarea { background-color: #FFF; border: 2px solid var(--border-color); border-radius: 0.5rem; padding: 0.75rem; transition: all 0.2s ease; }
+        input:focus, select:focus, textarea:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px rgba(74, 108, 111, 0.2); }
+        .nav-tab.active { color: var(--primary); border-bottom-color: var(--primary); }
+        .nav-tab { border-bottom: 3px solid transparent; padding: 1rem; font-weight: 600; color: #6b7280; transition: all 0.2s ease; }
+        #toast { position: fixed; bottom: -100px; left: 50%; transform: translateX(-50%); background-color: var(--text-dark); color: var(--text-light); padding: 1rem 1.5rem; border-radius: 0.5rem; box-shadow: 0 10px 20px rgba(0,0,0,0.2); transition: bottom 0.5s ease-in-out; z-index: 100; }
+        #toast.show { bottom: 30px; }
+    </style>
+</head>
+<body class="antialiased">
+    <div id="app-container" class="container mx-auto p-4 md:p-6">
+        
+        <header class="flex justify-between items-center mb-8 pb-4 border-b border-gray-200">
+            <div class="text-left">
+                <h1 class="text-4xl font-bold text-[var(--primary)]">FarmLink</h1>
+                <p id="app-tagline" class="mt-1 text-gray-500">The best of the harvest, delivered to you.</p>
+            </div>
+            <div class="text-right">
+                <div id="auth-status" class="text-xs text-gray-500">Connecting...</div>
+                <button id="logout-btn" class="hidden mt-1 text-sm text-[var(--accent)] font-semibold hover:underline">Switch Role</button>
+            </div>
+        </header>
+
+        <!-- Role Selection View -->
+        <div id="role-selection-view">
+             <div id="location-prompt" class="mb-8 text-center bg-white p-6 rounded-lg shadow-sm border-2 border-dashed border-gray-300">
+                <p id="location-prompt-text" class="font-semibold text-lg text-gray-700 mb-4"><strong>Step 1:</strong> Select your nearest town.</p>
+                <form id="manual-location-form" class="flex flex-col sm:flex-row items-center justify-center gap-4">
+                    <select id="location-select" class="w-full sm:w-auto"><option value="">-- Select a Town --</option></select>
+                    <button id="save-location-btn" type="submit" class="btn btn-secondary w-full sm:w-auto">Save Location</button>
+                </form>
+            </div>
+            <h2 class="text-lg font-semibold text-center text-gray-700 mb-4"><strong>Step 2:</strong> Choose Your Role</h2>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto">
+                <div id="select-farmer" class="role-card disabled cursor-pointer bg-white p-8 rounded-xl text-center"><div class="text-5xl mb-4">🧑‍🌾</div><h3 class="text-2xl font-bold">Farmer</h3></div>
+                <div id="select-consumer" class="role-card disabled cursor-pointer bg-white p-8 rounded-xl text-center"><div class="text-5xl mb-4">🛒</div><h3 class="text-2xl font-bold">Consumer</h3></div>
+                <div id="select-transporter" class="role-card disabled cursor-pointer bg-white p-8 rounded-xl text-center"><div class="text-5xl mb-4">🚚</div><h3 class="text-2xl font-bold">Transporter</h3></div>
+            </div>
+        </div>
+        
+        <!-- Main Views: Farmer, Consumer, Transporter -->
+        <div id="main-views"></div>
+
+        <!-- General Purpose Modal -->
+        <div id="modal" class="hidden fixed inset-0 bg-black bg-opacity-60 flex items-center justify-center z-50 p-4">
+            <div class="bg-white p-8 rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] flex flex-col">
+                <h3 id="modal-title" class="text-2xl font-bold text-[var(--primary)] mb-4"></h3>
+                <div id="modal-content" class="text-gray-700 mb-6 overflow-y-auto"></div>
+                <div id="modal-actions" class="mt-auto text-right space-x-2">
+                    <button id="modal-close-btn" class="btn btn-secondary">Close</button>
+                    <button id="modal-confirm-btn" class="btn btn-primary">Confirm</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Toast Notification -->
+        <div id="toast"></div>
+
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, getDoc, setDoc, addDoc, collection, query, where, onSnapshot, serverTimestamp, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "DEMO", projectId: "DEMO" };
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        const usersCollectionPath = `/artifacts/${appId}/public/data/users`;
+        const productsCollectionPath = `/artifacts/${appId}/public/data/products`;
+        const ordersCollectionPath = `/artifacts/${appId}/public/data/orders`;
+
+        let currentUser = null, userProfile = null, currentLocation = null, cart = {};
+        let allProducts = [], allUsers = [], allOrders = [];
+        
+        const ugandanLocations = [{ name: "Kampala", lat: 0.3476, lon: 32.5825 }, { name: "Gulu", lat: 2.7758, lon: 32.2893 }, { name: "Lira", lat: 2.2491, lon: 32.8997 }, { name: "Mbarara", lat: -0.6074, lon: 30.6596 }, { name: "Jinja", lat: 0.4471, lon: 33.2045 }, { name: "Mbale", lat: 1.0821, lon: 34.1759 }, { name: "Fort Portal", lat: 0.6558, lon: 30.2739 }, { name: "Arua", lat: 3.0232, lon: 30.9084 }, { name: "Entebbe", lat: 0.0631, lon: 32.4469 }, { name: "Masaka", lat: -0.3403, lon: 31.7344 }, { name: "Soroti", lat: 1.7155, lon: 33.6119 }, { name: "Tororo", lat: 0.6922, lon: 34.1809 }, { name: "Kasese", lat: 0.1866, lon: 29.9912 }];
+
+        const DOM = {
+            authStatus: document.getElementById('auth-status'),
+            roleSelectionView: document.getElementById('role-selection-view'),
+            mainViews: document.getElementById('main-views'),
+            modal: document.getElementById('modal'),
+            modalTitle: document.getElementById('modal-title'),
+            modalContent: document.getElementById('modal-content'),
+            modalCloseBtn: document.getElementById('modal-close-btn'),
+            modalConfirmBtn: document.getElementById('modal-confirm-btn'),
+            locationSelect: document.getElementById('location-select'),
+            logoutBtn: document.getElementById('logout-btn'),
+            toast: document.getElementById('toast'),
+            appTagline: document.getElementById('app-tagline'),
+            locationPrompt: document.getElementById('location-prompt'),
+            locationPromptText: document.getElementById('location-prompt-text'),
+            manualLocationForm: document.getElementById('manual-location-form'),
+        };
+
+        function showToast(message) {
+            DOM.toast.textContent = message;
+            DOM.toast.classList.add('show');
+            setTimeout(() => DOM.toast.classList.remove('show'), 3000);
+        }
+
+        function showModal(title, content, confirmCallback = null) {
+            DOM.modalTitle.textContent = title;
+            DOM.modalContent.innerHTML = content;
+            DOM.modalConfirmBtn.style.display = confirmCallback ? 'inline-block' : 'none';
+            if (confirmCallback) { DOM.modalConfirmBtn.onclick = () => { confirmCallback(); hideModal(); }; }
+            DOM.modal.classList.remove('hidden');
+        }
+        function hideModal() { DOM.modal.classList.add('hidden'); }
+        DOM.modalCloseBtn.addEventListener('click', hideModal);
+
+        function haversineDistance(coords1, coords2) {
+            if (!coords1 || !coords2) return Infinity;
+            const R = 6371;
+            const dLat = (coords2.latitude - coords1.latitude) * Math.PI / 180;
+            const dLon = (coords2.longitude - coords1.longitude) * Math.PI / 180;
+            const a = Math.sin(dLat / 2) ** 2 + Math.cos(coords1.latitude * Math.PI / 180) * Math.cos(coords2.latitude * Math.PI / 180) * Math.sin(dLon / 2) ** 2;
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+        
+        function getProductImage(productName) {
+            const name = productName.toLowerCase();
+            if (name.includes('matooke') || name.includes('banana')) return 'https://images.unsplash.com/photo-1543218583-97b4153a5255?q=80&w=1974&auto=format&fit=crop';
+            if (name.includes('cassava') || name.includes('yuca')) return 'https://images.unsplash.com/photo-1594902097968-3d5a23f46429?q=80&w=2070&auto=format&fit=crop';
+            if (name.includes('tomato')) return 'https://images.unsplash.com/photo-1582284540020-8acbe03f4924?q=80&w=1974&auto=format&fit=crop';
+            if (name.includes('cabbage')) return 'https://images.unsplash.com/photo-1561586322-216e2c313de0?q=80&w=1964&auto=format&fit=crop';
+            if (name.includes('maize') || name.includes('corn')) return 'https://images.unsplash.com/photo-1598248032488-8d48454693a2?q=80&w=1974&auto=format&fit=crop';
+            if (name.includes('beans')) return 'https://images.unsplash.com/photo-1595398634577-cb046d369e46?q=80&w=1974&auto=format&fit=crop';
+            return `https://images.unsplash.com/photo-1542838132-92c53300491e?q=80&w=1974&auto=format&fit=crop`; // Generic produce
+        }
+
+        function switchView(view) {
+            DOM.roleSelectionView.classList.add('hidden');
+            DOM.mainViews.classList.add('hidden');
+            document.getElementById(view).classList.remove('hidden');
+            if (view === 'main-views') {
+                DOM.appTagline.classList.add('hidden');
+                DOM.logoutBtn.classList.remove('hidden');
+            } else {
+                DOM.appTagline.classList.remove('hidden');
+                DOM.logoutBtn.classList.add('hidden');
+            }
+        }
+
+        async function handleLogout() {
+            if (currentUser) { await setDoc(doc(db, usersCollectionPath, currentUser.uid), { role: null }, { merge: true }); }
+            userProfile = null; currentLocation = null;
+            DOM.locationPromptText.innerHTML = `<strong>Step 1:</strong> Select your nearest major town to begin.`;
+            DOM.manualLocationForm.classList.remove('hidden');
+            document.querySelectorAll('.role-card').forEach(card => card.classList.add('disabled'));
+            DOM.locationSelect.value = '';
+            switchView('role-selection-view');
+        }
+        DOM.logoutBtn.addEventListener('click', handleLogout);
+
+        DOM.manualLocationForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const selectedTown = DOM.locationSelect.value;
+            if (!selectedTown) { showModal('Error', 'Please select a town from the list.'); return; }
+            const selectedLocation = ugandanLocations.find(loc => loc.name === selectedTown);
+            currentLocation = { latitude: selectedLocation.lat, longitude: selectedLocation.lon, name: selectedLocation.name };
+            if (currentUser) { await setDoc(doc(db, usersCollectionPath, currentUser.uid), { location: currentLocation }, { merge: true }); }
+            document.querySelectorAll('.role-card').forEach(card => card.classList.remove('disabled'));
+            DOM.locationPromptText.innerHTML = `Location Saved: <strong>${currentLocation.name}</strong>`;
+            DOM.manualLocationForm.classList.add('hidden');
+        });
+
+        async function selectRole(role) {
+            if (!currentLocation) { showModal('Location Required', 'Please select and save your location before choosing a role.'); return; }
+            userProfile = { uid: currentUser.uid, role, location: currentLocation };
+            await setDoc(doc(db, usersCollectionPath, currentUser.uid), userProfile, { merge: true });
+            loadAppForRole(role);
+        }
+
+        function loadAppForRole(role) {
+            switchView('main-views');
+            let viewHtml = '';
+            const navItems = {
+                farmer: [{ id: 'products', name: 'My Products' }, { id: 'orders', name: 'My Orders' }],
+                consumer: [{ id: 'market', name: 'Marketplace' }, { id: 'cart', name: 'Cart' }, { id: 'orders', name: 'My Orders' }],
+                transporter: [{ id: 'jobs', name: 'Available Jobs' }, { id: 'deliveries', name: 'My Deliveries' }]
+            };
+            viewHtml += `<nav class="flex justify-center border-b mb-6 gap-8">` + 
+                navItems[role].map(item => `<button data-tab="${role}-${item.id}" class="nav-tab">${item.name} ${item.id === 'cart' ? `<span id="cart-count" class="bg-red-500 text-white text-xs font-bold rounded-full px-2 py-1 ml-1">0</span>` : ''}</button>`).join('') +
+            `</nav>`;
+            viewHtml += navItems[role].map(item => `<div id="${role}-${item.id}-tab" class="hidden"></div>`).join('');
+            DOM.mainViews.innerHTML = viewHtml;
+            
+            DOM.mainViews.querySelectorAll('.nav-tab').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    DOM.mainViews.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+                    tab.classList.add('active');
+                    DOM.mainViews.querySelectorAll('[id$="-tab"]').forEach(content => content.classList.add('hidden'));
+                    document.getElementById(tab.dataset.tab + '-tab').classList.remove('hidden');
+                });
+            });
+            
+            DOM.mainViews.querySelector('.nav-tab').click();
+            renderAllViews();
+        }
+
+        function renderAllViews() {
+            if (!userProfile?.role) return;
+            switch (userProfile.role) {
+                case 'consumer':
+                    renderMarketplace();
+                    renderCart();
+                    renderOrders(allOrders.filter(o => o.consumerId === currentUser.uid), 'consumer-orders-tab', allUsers);
+                    break;
+                case 'farmer':
+                    renderFarmerProducts();
+                    renderOrders(allOrders.filter(o => o.farmerId === currentUser.uid), 'farmer-orders-tab', allUsers);
+                    break;
+                case 'transporter':
+                    renderOrders(allOrders.filter(o => o.status === 'ready_for_pickup'), 'transporter-jobs-tab', allUsers);
+                    renderOrders(allOrders.filter(o => o.transporterId === currentUser.uid), 'transporter-deliveries-tab', allUsers);
+                    break;
+            }
+        }
+        
+        function renderMarketplace() {
+            const container = document.getElementById('consumer-market-tab');
+            if(!container) return;
+            let filteredProducts = [...allProducts];
+            container.innerHTML = `
+                <div class="mb-6"><input type="search" id="market-search" placeholder="Search for products..." class="w-full max-w-lg mx-auto block"></div>
+                <div id="market-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>
+            `;
+            const searchInput = document.getElementById('market-search');
+            const grid = document.getElementById('market-grid');
+            
+            const renderGrid = () => {
+                grid.innerHTML = '';
+                if (!filteredProducts.length) { grid.innerHTML = '<p class="col-span-full text-center text-gray-500">No products found.</p>'; return; }
+                filteredProducts.sort((a,b) => haversineDistance(currentLocation, allUsers.find(u => u.uid === a.farmerId)?.location) - haversineDistance(currentLocation, allUsers.find(u => u.uid === b.farmerId)?.location))
+                .forEach(p => {
+                    const farmer = allUsers.find(u => u.uid === p.farmerId);
+                    const dist = haversineDistance(currentLocation, farmer?.location);
+                    const card = document.createElement('div');
+                    card.className = 'bg-white rounded-lg shadow-md overflow-hidden flex flex-col group';
+                    card.innerHTML = `
+                        <div class="h-48 overflow-hidden"><img src="${getProductImage(p.name)}" alt="${p.name}" class="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"></div>
+                        <div class="p-4 flex flex-col flex-grow">
+                            <h3 class="text-xl font-bold text-[var(--primary)]">${p.name}</h3>
+                            <p class="text-sm text-gray-500">From ${farmer?.location?.name || 'a local farm'} (~${dist.toFixed(1)} km)</p>
+                            <p class="text-2xl text-gray-800 font-bold my-3">UGX ${p.price.toLocaleString()}</p>
+                            <p class="text-sm text-gray-600 mb-4">Stock: ${p.quantity}</p>
+                            <button class="add-to-cart-btn btn btn-secondary mt-auto">Add to Cart</button>
+                        </div>
+                    `;
+                    card.querySelector('.add-to-cart-btn').onclick = () => {
+                        if(p.quantity > 0) {
+                            cart[p.id] = cart[p.id] ? { ...p, quantity: cart[p.id].quantity + 1 } : { ...p, quantity: 1 };
+                            updateCartView();
+                            showToast(`${p.name} added to cart!`);
+                        } else {
+                            showToast('This item is out of stock.');
+                        }
+                    };
+                    grid.appendChild(card);
+                });
+            }
+            
+            searchInput.addEventListener('input', (e) => {
+                const searchTerm = e.target.value.toLowerCase();
+                filteredProducts = allProducts.filter(p => p.name.toLowerCase().includes(searchTerm));
+                renderGrid();
+            });
+            renderGrid();
+        }
+
+        function renderCart() {
+            const container = document.getElementById('consumer-cart-tab');
+            if(!container) return;
+            container.innerHTML = `<div id="cart-items" class="space-y-4"></div>
+                <div id="cart-summary" class="mt-8 pt-4 border-t text-right">
+                    <h3 class="text-2xl font-bold">Total: <span id="cart-total" class="text-[var(--primary)]">UGX 0</span></h3>
+                    <button id="checkout-btn" class="mt-4 btn btn-primary">Proceed to Checkout</button>
+                </div>`;
+            updateCartView();
+            document.getElementById('checkout-btn').addEventListener('click', () => {
+                const content = `<p class="mb-4">Select a payment method to complete your purchase.</p>
+                    <div class="space-y-3">
+                        <button class="w-full text-left p-4 border rounded-lg hover:bg-gray-100"><strong>Mobile Money</strong></button>
+                        <button class="w-full text-left p-4 border rounded-lg hover:bg-gray-100"><strong>Cash on Delivery</strong></button>
+                    </div>`;
+                showModal('Checkout', content, placeOrder);
+            });
+        }
+        
+        function updateCartView() {
+            const cartItemsEl = document.getElementById('cart-items');
+            const cartTotalEl = document.getElementById('cart-total');
+            const cartCountEl = document.getElementById('cart-count');
+            if(!cartItemsEl) return;
+
+            cartItemsEl.innerHTML = ''; let total = 0;
+            const cartValues = Object.values(cart);
+            if (cartValues.length === 0) { cartItemsEl.innerHTML = '<p class="text-center text-gray-500 py-8">Your cart is empty.</p>'; document.getElementById('cart-summary').classList.add('hidden'); } 
+            else { document.getElementById('cart-summary').classList.remove('hidden'); }
+
+            cartValues.forEach(item => {
+                const itemEl = document.createElement('div');
+                itemEl.className = 'flex justify-between items-center bg-white p-4 rounded-lg shadow-sm';
+                itemEl.innerHTML = `<div><p class="font-bold">${item.name}</p><p class="text-sm text-gray-600">UGX ${item.price.toLocaleString()} x ${item.quantity}</p></div><p class="font-bold text-lg">UGX ${(item.price * item.quantity).toLocaleString()}</p>`;
+                cartItemsEl.appendChild(itemEl);
+                total += item.price * item.quantity;
+            });
+            cartTotalEl.textContent = `UGX ${total.toLocaleString()}`;
+            if(cartCountEl) cartCountEl.textContent = cartValues.length;
+        }
+
+        async function placeOrder() {
+            try {
+                await runTransaction(db, async (transaction) => {
+                    for (const item of Object.values(cart)) {
+                        const productRef = doc(db, productsCollectionPath, item.id);
+                        const productDoc = await transaction.get(productRef);
+                        if (!productDoc.exists() || productDoc.data().quantity < item.quantity) {
+                            throw `Sorry, "${item.name}" is no longer available in the requested quantity.`;
+                        }
+                        const newQuantity = productDoc.data().quantity - item.quantity;
+                        transaction.update(productRef, { quantity: newQuantity });
+                    }
+                    
+                    const farmers = [...new Set(Object.values(cart).map(item => item.farmerId))];
+                    for (const farmerId of farmers) {
+                        const orderItems = Object.values(cart).filter(item => item.farmerId === farmerId);
+                        const total = orderItems.reduce((sum, i) => sum + (i.price * i.quantity), 0);
+                        const orderRef = doc(collection(db, ordersCollectionPath));
+                        transaction.set(orderRef, { consumerId: currentUser.uid, consumerLocation: currentLocation, farmerId, items: orderItems, total, status: 'pending', createdAt: serverTimestamp() });
+                    }
+                });
+                cart = {}; updateCartView();
+                showToast('Order placed successfully!');
+                DOM.mainViews.querySelector('[data-tab="consumer-orders"]').click();
+            } catch (e) {
+                console.error("Transaction failed: ", e);
+                showModal('Order Failed', typeof e === 'string' ? e : 'There was an issue placing your order. Please try again.');
+            }
+        }
+        
+        function renderFarmerProducts(){
+            const container = document.getElementById('farmer-products-tab');
+            if(!container) return;
+            container.innerHTML = `
+                <section class="mb-8 bg-white p-6 md:p-8 rounded-xl shadow-sm border">
+                    <h2 class="text-2xl font-bold text-[var(--primary)] mb-4">Add New Produce</h2>
+                    <form id="add-product-form" class="space-y-4">
+                        <input type="text" id="product-name" placeholder="Product Name (e.g., Matooke)" required>
+                        <div class="flex gap-4"><input type="number" id="product-price" placeholder="Price (UGX)" required><input type="number" id="product-quantity" placeholder="Quantity" required></div>
+                        <button type="submit" class="btn btn-primary w-full">Add Product</button>
+                    </form>
+                </section>
+                <div id="my-products-grid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6"></div>`;
+            
+            document.getElementById('add-product-form').addEventListener('submit', async e => {
+                e.preventDefault();
+                await addDoc(collection(db, productsCollectionPath), {
+                    name: e.target['product-name'].value, price: Number(e.target['product-price'].value), quantity: Number(e.target['product-quantity'].value),
+                    farmerId: currentUser.uid, location: userProfile.location, createdAt: serverTimestamp()
+                });
+                e.target.reset(); showToast('Product added successfully!');
+            });
+
+            const grid = document.getElementById('my-products-grid');
+            const myProducts = allProducts.filter(p => p.farmerId === currentUser.uid);
+            grid.innerHTML = '';
+            if (!myProducts.length) { grid.innerHTML = '<p class="col-span-full text-center text-gray-500 py-8">You have not listed any products.</p>'; return; }
+            myProducts.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'bg-white rounded-lg shadow-sm p-4';
+                card.innerHTML = `<h3 class="text-xl font-bold">${p.name}</h3><p>Price: UGX ${p.price.toLocaleString()}</p><p>Quantity: ${p.quantity}</p>`;
+                grid.appendChild(card);
+            });
+        }
+        
+        function renderOrders(orders, containerId, users) {
+            const list = document.getElementById(containerId);
+            if(!list) return;
+            list.innerHTML = '';
+            if(!orders.length) { list.innerHTML = '<p class="text-center text-gray-500 py-8">No orders found.</p>'; return; }
+
+            const statusSteps = ['pending', 'ready_for_pickup', 'out_for_delivery', 'delivered'];
+            
+            orders.sort((a,b) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0)).forEach(order => {
+                const card = document.createElement('div');
+                card.className = 'bg-white p-6 rounded-lg shadow-sm mb-4';
+                const itemsHtml = order.items.map(i => `<li>${i.quantity}x ${i.name}</li>`).join('');
+                const transporter = order.transporterId ? users.find(u => u.uid === order.transporterId) : null;
+                const role = userProfile.role;
+
+                let currentStatusIndex = statusSteps.indexOf(order.status);
+                const statusHtml = `<div class="flex justify-between mt-4">` + 
+                    statusSteps.map((step, index) => `<div class="text-center w-1/4"><div class="mx-auto h-3 w-3 rounded-full ${index <= currentStatusIndex ? 'bg-[var(--secondary)]' : 'bg-gray-300'}"></div><p class="text-xs mt-1 ${index <= currentStatusIndex ? 'font-semibold' : 'text-gray-500'}">${step.replace(/_/g, ' ')}</p></div>`).join('') +
+                `</div>`;
+
+                card.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <p class="font-bold text-lg">Order #${order.id.substring(0,6)}</p>
+                        <p class="font-bold py-1 px-3 rounded-full text-sm capitalize ${order.status === 'delivered' ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}">${order.status.replace(/_/g, ' ')}</p>
+                    </div>
+                    <ul class="list-disc pl-5 my-2">${itemsHtml}</ul>
+                    <p class="font-semibold">Total: UGX ${order.total.toLocaleString()}</p>
+                    ${transporter ? `<p class="text-sm mt-2">Transporter: ${transporter.uid.substring(0,8)}... (<a href="#" class="text-blue-600">Contact</a>)</p>` : ''}
+                    ${statusHtml}
+                    <div class="mt-4 border-t pt-4 text-right space-x-2">
+                        ${role === 'farmer' && order.status === 'pending' ? `<button class="btn btn-primary" data-action="make-ready" data-order-id="${order.id}">Ready for Pickup</button>` : ''}
+                        ${role === 'transporter' && containerId.includes('jobs') && order.status === 'ready_for_pickup' ? `<button class="btn btn-secondary" data-action="accept-job" data-order-id="${order.id}">Accept Job</button>`:''}
+                        ${role === 'transporter' && containerId.includes('deliveries') && order.status === 'ready_for_pickup' ? `<button class="btn btn-primary" data-action="update-status" data-order-id="${order.id}" data-new-status="out_for_delivery">Out for Delivery</button>`:''}
+                        ${role === 'transporter' && containerId.includes('deliveries') && order.status === 'out_for_delivery' ? `<button class="btn btn-primary" data-action="update-status" data-order-id="${order.id}" data-new-status="delivered">Mark Delivered</button>`:''}
+                    </div>`;
+                list.appendChild(card);
+            });
+
+            list.addEventListener('click', async (e) => {
+                const button = e.target.closest('button[data-action]');
+                if(!button) return;
+                const { action, orderId, newStatus } = button.dataset;
+                button.disabled = true;
+                try {
+                    switch(action) {
+                        case 'make-ready':
+                             await updateDoc(doc(db, ordersCollectionPath, orderId), { status: 'ready_for_pickup' });
+                             showToast('Order marked as ready for pickup.'); break;
+                        case 'accept-job':
+                            await updateDoc(doc(db, ordersCollectionPath, orderId), { transporterId: currentUser.uid });
+                            showToast('Job accepted!'); break;
+                        case 'update-status':
+                            await updateDoc(doc(db, ordersCollectionPath, orderId), { status: newStatus });
+                            showToast('Order status updated.'); break;
+                    }
+                } catch(err) { console.error("Action failed", err); showToast('Action failed. Please try again.'); }
+                finally { button.disabled = false; }
+            });
+        }
+
+
+        onAuthStateChanged(auth, async user => {
+            if (user) {
+                currentUser = user;
+                DOM.authStatus.textContent = `Connected`;
+                DOM.authStatus.classList.add('text-green-700');
+                
+                const userDoc = await getDoc(doc(db, usersCollectionPath, user.uid));
+                if (userDoc.exists() && userDoc.data().role) {
+                    userProfile = userDoc.data();
+                    currentLocation = userProfile.location;
+                    if(currentLocation?.name) { DOM.locationPrompt.classList.add('hidden'); }
+                    loadAppForRole(userProfile.role);
+                } else {
+                    switchView('role-selection-view');
+                }
+
+                onSnapshot(collection(db, productsCollectionPath), s => { allProducts = s.docs.map(d=>({id:d.id,...d.data()})); renderAllViews(); });
+                onSnapshot(collection(db, usersCollectionPath), s => { allUsers = s.docs.map(d=>({id:d.id,...d.data()})); renderAllViews(); });
+                onSnapshot(collection(db, ordersCollectionPath), s => { allOrders = s.docs.map(d=>({id:d.id,...d.data()})); renderAllViews(); });
+
+            } else {
+                DOM.authStatus.textContent = 'Signing in...';
+                try {
+                    const token = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+                    if (token) await signInWithCustomToken(auth, token); else await signInAnonymously(auth);
+                } catch (e) {
+                    console.error("Authentication Error:", e);
+                    DOM.authStatus.textContent = 'Authentication Failed.';
+                }
+            }
+        });
+        
+        document.getElementById('select-farmer').addEventListener('click', () => selectRole('farmer'));
+        document.getElementById('select-consumer').addEventListener('click', () => selectRole('consumer'));
+        document.getElementById('select-transporter').addEventListener('click', () => selectRole('transporter'));
+
+        DOM.locationSelect.innerHTML = '<option value="">-- Select a Town --</option>' + ugandanLocations.map(l=>`<option value="${l.name}">${l.name}</option>`).join('');
+
+    </script>
+</body>
+</html>
