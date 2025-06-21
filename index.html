@@ -92,7 +92,15 @@
         import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
         import { getFirestore, doc, getDoc, setDoc, addDoc, collection, query, where, onSnapshot, serverTimestamp, updateDoc, runTransaction } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
 
-        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : { apiKey: "DEMO", projectId: "DEMO" };
+        const firebaseConfig = {
+  apiKey: "AIzaSyCtMcM7KffToHuEgzXpXxiI0zS5jCI4yJM",
+  authDomain: "farmlink-app-a9dc1.firebaseapp.com",
+  projectId: "farmlink-app-a9dc1",
+  storageBucket: "farmlink-app-a9dc1.firebasestorage.app",
+  messagingSenderId: "141711673003",
+  appId: "1:141711673003:web:20051a7672dfc0cba319ee",
+  measurementId: "G-QRTZQV3NWQ"
+};
         const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
         const app = initializeApp(firebaseConfig);
         const auth = getAuth(app);
@@ -500,7 +508,7 @@
                 }
             }
         });
-        
+                
         document.getElementById('select-farmer').addEventListener('click', () => selectRole('farmer'));
         document.getElementById('select-consumer').addEventListener('click', () => selectRole('consumer'));
         document.getElementById('select-transporter').addEventListener('click', () => selectRole('transporter'));
